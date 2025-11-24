@@ -31,5 +31,5 @@ redis.on('error', (err) => {
 
 module.exports = {
   db: dbPool,
-  redis
+  redis,
 };
