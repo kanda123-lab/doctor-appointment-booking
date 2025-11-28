@@ -25,13 +25,13 @@ const mockDoctor: Doctor = {
 const mockPatient: Patient = {
   id: '770e8400-e29b-41d4-a716-446655440001',
   user_id: '7e4c7e0f-f0b5-4c68-a7c9-7c85a8b7ef27',
-  first_name: 'Patient',
-  last_name: '',
-  date_of_birth: '1990-01-01',
+  first_name: 'Monisha',
+  last_name: 'Patel',
+  date_of_birth: '1990-05-15',
   phone: '+91-9876543210',
-  address: '123 Main St',
-  emergency_contact: null,
-  medical_history: '',
+  address: '123 Medical Center, Mumbai, Maharashtra 400001',
+  emergency_contact: '+91-9123456789',
+  medical_history: 'No known allergies. Previous consultations for general health checkups.',
   created_at: '2025-11-22T00:00:00Z',
   updated_at: '2025-11-22T00:00:00Z'
 };
@@ -46,7 +46,7 @@ const mockDoctorUser: User = {
 
 const mockPatientUser: User = {
   id: '7e4c7e0f-f0b5-4c68-a7c9-7c85a8b7ef27',
-  email: 'patient@example.com',
+  email: 'monisha.patel@example.com',
   role: 'patient',
   created_at: '2025-11-22T00:00:00Z',
   updated_at: '2025-11-22T00:00:00Z'

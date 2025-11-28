@@ -59,12 +59,30 @@ const PatientDashboard: React.FC = () => {
   const [appointmentType, setAppointmentType] = useState<string>('consultation');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, data: null as CreateAppointmentData | null });
+  
+  // Appointments viewing state
+  const [myAppointments, setMyAppointments] = useState<any[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+
+  const fetchMyAppointments = useCallback(async () => {
+    try {
+      setAppointmentsLoading(true);
+      const appointments = await appointmentService.getPatientAppointments(patient.id);
+      setMyAppointments(appointments);
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+    } finally {
+      setAppointmentsLoading(false);
+    }
+  }, [patient.id]);
 
   const fetchData = useCallback(async () => {
     try {
       const doctorsData = await doctorService.getAvailableDoctors();
-      
       setDoctors(doctorsData);
+      
+      // Fetch patient's appointments
+      await fetchMyAppointments();
       setError('');
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -72,7 +90,7 @@ const PatientDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchMyAppointments]);
 
   useEffect(() => {
     fetchData();
@@ -167,6 +185,10 @@ const PatientDashboard: React.FC = () => {
       setNotes('');
       setError('');
       setConfirmDialog({ open: false, data: null });
+      
+      // Refresh appointments
+      await fetchMyAppointments();
+      
       setSnackbar({
         open: true,
         message: 'Appointment booked successfully!',
@@ -856,6 +878,205 @@ const PatientDashboard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* My Appointments Section */}
+      <Box maxWidth="lg" mx="auto" mt={4}>
+        <Card
+          elevation={8}
+          sx={{
+            borderRadius: 4,
+            overflow: 'visible',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          <CardContent sx={{ pt: 4, pb: 2, px: { xs: 3, sm: 4 } }}>
+            <Box display="flex" alignItems="center" gap={2} mb={3}>
+              <Avatar
+                sx={{
+                  width: 48,
+                  height: 48,
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)',
+                  boxShadow: '0 8px 32px rgba(76, 175, 80, 0.25)'
+                }}
+              >
+                <Schedule sx={{ fontSize: 24 }} />
+              </Avatar>
+              <Box>
+                <Typography
+                  variant="h4"
+                  fontWeight="700"
+                  color="text.primary"
+                  sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}
+                >
+                  My Appointments
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ mt: 0.5 }}
+                >
+                  View and manage your scheduled appointments
+                </Typography>
+              </Box>
+            </Box>
+          </CardContent>
+
+          <CardContent sx={{ px: { xs: 3, sm: 4 }, pt: 0 }}>
+            {appointmentsLoading ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            ) : myAppointments.length === 0 ? (
+              <Paper
+                elevation={2}
+                sx={{
+                  p: 4,
+                  textAlign: 'center',
+                  borderRadius: 3,
+                  background: 'white',
+                  border: '1px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                <Avatar sx={{ width: 64, height: 64, bgcolor: 'grey.100', mx: 'auto', mb: 2 }}>
+                  <CalendarToday sx={{ fontSize: 32, color: 'grey.400' }} />
+                </Avatar>
+                <Typography variant="h6" color="text.primary" mb={1}>
+                  No appointments yet
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Book your first appointment using the form above
+                </Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, 
+                gap: 3
+              }}>
+                {myAppointments.map((appointment, index) => (
+                  <Fade in timeout={300 + index * 100} key={appointment.id}>
+                    <Card
+                      elevation={3}
+                      sx={{
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': {
+                          transform: 'translateY(-4px)',
+                          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.15)'
+                        },
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        {/* Doctor Info */}
+                        <Box display="flex" alignItems="center" gap={2} mb={2}>
+                          <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
+                            <LocalHospital sx={{ fontSize: 24 }} />
+                          </Avatar>
+                          <Box flex={1}>
+                            <Typography variant="h6" fontWeight="600">
+                              Dr. {appointment.doctor_first_name} {appointment.doctor_last_name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              {appointment.specialization}
+                            </Typography>
+                          </Box>
+                          <Chip
+                            label={appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('_', ' ')}
+                            color={
+                              appointment.status === 'pending' ? 'warning' :
+                              appointment.status === 'confirmed' ? 'info' :
+                              appointment.status === 'completed' ? 'success' :
+                              appointment.status === 'cancelled' ? 'error' :
+                              'default'
+                            }
+                            size="small"
+                            variant="filled"
+                          />
+                        </Box>
+
+                        {/* Appointment Details */}
+                        <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} mb={2}>
+                          <Box>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                              <CalendarToday sx={{ fontSize: 16, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.secondary">
+                                Date
+                              </Typography>
+                            </Box>
+                            <Typography variant="body1" fontWeight="600">
+                              {new Date(appointment.appointment_date).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </Typography>
+                          </Box>
+                          <Box>
+                            <Box display="flex" alignItems="center" gap={1} mb={1}>
+                              <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
+                              <Typography variant="body2" color="text.secondary">
+                                Time
+                              </Typography>
+                            </Box>
+                            <Typography variant="body1" fontWeight="600">
+                              {appointment.start_time} - {appointment.end_time}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        {/* Appointment Type & Fee */}
+                        <Box display="grid" gridTemplateColumns="1fr 1fr" gap={2} mb={2}>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Type
+                            </Typography>
+                            <Chip 
+                              label={appointment.appointment_type?.charAt(0).toUpperCase() + appointment.appointment_type?.slice(1).replace('_', ' ') || 'Consultation'} 
+                              size="small" 
+                              variant="outlined"
+                            />
+                          </Box>
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Consultation Fee
+                            </Typography>
+                            <Typography variant="body1" fontWeight="600" color="primary.main">
+                              ₹{appointment.consultation_fee}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        {/* Notes */}
+                        {appointment.notes && (
+                          <Box>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                              Notes
+                            </Typography>
+                            <Typography variant="body2" sx={{ 
+                              bgcolor: 'grey.50', 
+                              p: 1.5, 
+                              borderRadius: 1,
+                              border: '1px solid',
+                              borderColor: 'grey.200'
+                            }}>
+                              {appointment.notes}
+                            </Typography>
+                          </Box>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Fade>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* Snackbar for notifications */}
       <Snackbar
