@@ -10,21 +10,23 @@ class Appointment {
       end_time,
       appointment_type = 'consultation',
       notes = '',
-      status = 'pending'
+      status = 'pending',
+      patient_name = null,
+      patient_phone = null
     } = appointmentData;
 
     const query = `
       INSERT INTO appointments (
         doctor_id, patient_id, appointment_date, start_time, end_time,
-        appointment_type, notes, status, created_at, updated_at
+        appointment_type, notes, status, patient_name, patient_phone, created_at, updated_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       RETURNING *
     `;
 
     const result = await pool.query(query, [
       doctor_id, patient_id, appointment_date, start_time, end_time,
-      appointment_type, notes, status
+      appointment_type, notes, status, patient_name, patient_phone
     ]);
 
     return result.rows[0];
@@ -34,9 +36,9 @@ class Appointment {
     const query = `
       SELECT 
         a.*,
-        p.first_name as patient_first_name,
-        p.last_name as patient_last_name,
-        p.phone as patient_phone,
+        COALESCE(a.patient_name, CONCAT(p.first_name, CASE WHEN p.last_name IS NOT NULL AND p.last_name != '' THEN CONCAT(' ', p.last_name) ELSE '' END)) as patient_first_name,
+        '' as patient_last_name,
+        COALESCE(a.patient_phone, p.phone) as patient_phone,
         pu.email as patient_email,
         d.first_name as doctor_first_name,
         d.last_name as doctor_last_name,
@@ -57,9 +59,9 @@ class Appointment {
     let query = `
       SELECT 
         a.*,
-        p.first_name as patient_first_name,
-        p.last_name as patient_last_name,
-        p.phone as patient_phone,
+        COALESCE(a.patient_name, CONCAT(p.first_name, CASE WHEN p.last_name IS NOT NULL AND p.last_name != '' THEN CONCAT(' ', p.last_name) ELSE '' END)) as patient_first_name,
+        '' as patient_last_name,
+        COALESCE(a.patient_phone, p.phone) as patient_phone,
         pu.email as patient_email
       FROM appointments a
       LEFT JOIN patients p ON a.patient_id = p.id

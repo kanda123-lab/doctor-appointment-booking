@@ -5,7 +5,7 @@ class AppointmentController {
   // Create a new appointment (patients)
   static async createAppointment(req, res) {
     try {
-      const { doctor_id, appointment_date, start_time, end_time, appointment_type, notes } = req.body;
+      const { doctor_id, appointment_date, start_time, end_time, appointment_type, notes, patient_name, patient_phone } = req.body;
 
       const appointment = await Appointment.create({
         doctor_id,
@@ -14,7 +14,9 @@ class AppointmentController {
         start_time,
         end_time,
         appointment_type,
-        notes
+        notes,
+        patient_name,
+        patient_phone
       });
 
       logger.info('Appointment created:', {
@@ -144,7 +146,7 @@ class AppointmentController {
       logger.info('Appointment status updated:', {
         appointmentId: id,
         newStatus: status,
-        updatedBy: req.user.id
+        updatedBy: 'system'
       });
 
       res.json({
@@ -205,7 +207,7 @@ class AppointmentController {
 
       logger.info('Appointment cancelled:', {
         appointmentId: id,
-        cancelledBy: req.user.id,
+        cancelledBy: 'system',
         reason: cancellation_reason
       });
 

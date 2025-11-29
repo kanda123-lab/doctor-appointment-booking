@@ -36,6 +36,8 @@ export interface CreateAppointmentData {
   end_time: string;
   appointment_type?: string;
   notes?: string;
+  patient_name?: string;
+  patient_phone?: string;
 }
 
 class AppointmentService {
