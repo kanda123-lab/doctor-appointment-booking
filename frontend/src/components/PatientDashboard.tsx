@@ -15,10 +15,6 @@ import {
   Paper,
   Fade,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Snackbar,
   Alert,
   Dialog,
@@ -30,30 +26,76 @@ import {
 } from '@mui/material';
 import {
   LocalHospital,
-  Star,
   CheckCircle,
   CalendarToday,
   AccessTime,
   Add,
   MedicalServices,
-  Schedule,
   Cancel,
-  QueueMusic,
-  Business,
-  Apartment,
   Phone,
   Person,
   NotificationsActive,
-  DoneAll
+  DoneAll,
+  ArrowBack,
+  ArrowForward,
+  Edit,
+  Healing,
+  FavoriteRounded
 } from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
 const PatientDashboard: React.FC = () => {
   const { profile } = useAuth();
   const patient = profile as Patient;
+
+  // Helper function to create step headers
+  const renderStepHeader = (stepNumber: number, totalSteps: number, title: string, isCompleted: boolean, isActive: boolean) => (
+    <Box display="flex" alignItems="center" gap={2} mb={3}>
+      <Box 
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '1rem',
+          fontWeight: 700,
+          backgroundColor: isCompleted ? 'success.main' : (isActive ? 'primary.main' : 'grey.300'),
+          color: isCompleted || isActive ? 'white' : 'text.secondary',
+          transition: 'all 0.3s ease-in-out',
+          border: isActive ? '3px solid' : '2px solid',
+          borderColor: isCompleted ? 'success.main' : (isActive ? 'primary.light' : 'grey.300'),
+        }}
+      >
+        {isCompleted ? <CheckCircle sx={{ fontSize: 20 }} /> : stepNumber}
+      </Box>
+      <Box>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            color: 'text.secondary',
+            fontWeight: 600,
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5
+          }}
+        >
+          Step {stepNumber} of {totalSteps}
+        </Typography>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700,
+            color: isActive ? 'primary.main' : 'text.primary',
+            lineHeight: 1.2
+          }}
+        >
+          {title}
+        </Typography>
+      </Box>
+    </Box>
+  );
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
@@ -69,6 +111,10 @@ const PatientDashboard: React.FC = () => {
   const [patientPhone, setPatientPhone] = useState('+91-');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, data: null as CreateAppointmentData | null });
+  
+  // Progressive form state
+  const [currentFormStep, setCurrentFormStep] = useState(0);
+  const [formStepsCompleted, setFormStepsCompleted] = useState<boolean[]>([false, false, false, false]);
   
   // Validation states
   const [formErrors, setFormErrors] = useState({
@@ -119,6 +165,53 @@ const PatientDashboard: React.FC = () => {
 
     setFormErrors(errors);
     return !Object.values(errors).some(error => error !== '');
+  };
+
+  // Progressive form helpers
+  const handleFormStepNext = () => {
+    const newCompleted = [...formStepsCompleted];
+    newCompleted[currentFormStep] = true;
+    setFormStepsCompleted(newCompleted);
+    setCurrentFormStep(Math.min(currentFormStep + 1, 3));
+  };
+
+  const handleFormStepBack = () => {
+    setCurrentFormStep(Math.max(currentFormStep - 1, 0));
+  };
+
+  const canProceedToNextStep = (stepIndex: number): boolean => {
+    switch (stepIndex) {
+      case 0: // Name step
+        return patientName.trim().length >= 2;
+      case 1: // Phone step
+        return validatePhoneNumber(patientPhone) === '';
+      case 2: // Appointment type step
+        return appointmentType !== '';
+      case 3: // Notes step (optional)
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const getStepTitle = (stepIndex: number): string => {
+    switch (stepIndex) {
+      case 0: return "What's your name?";
+      case 1: return "How can we reach you?";
+      case 2: return "What type of visit?";
+      case 3: return "Anything specific to mention?";
+      default: return "Your Details";
+    }
+  };
+
+  const getStepSubtitle = (stepIndex: number): string => {
+    switch (stepIndex) {
+      case 0: return "Let us know what to call you";
+      case 1: return "We'll send appointment updates";
+      case 2: return "Help us prepare for your visit";
+      case 3: return "Optional - describe your symptoms or reason";
+      default: return "";
+    }
   };
 
   const handleDoctorSelect = async (doctor: Doctor) => {
@@ -219,6 +312,8 @@ const PatientDashboard: React.FC = () => {
       setPatientName('');
       setPatientPhone('+91-');
       setFormErrors({ patientName: '', patientPhone: '' });
+      setCurrentFormStep(0);
+      setFormStepsCompleted([false, false, false, false]);
       setError('');
       setConfirmDialog({ open: false, data: null });
       
@@ -274,47 +369,31 @@ const PatientDashboard: React.FC = () => {
         )}
 
 
-        {/* Booking Flow Cards */}
-        <Box maxWidth="lg" mx="auto" sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* Doctor Selection Section */}
+        {/* 3-Step Booking Process */}
+        <Box maxWidth="lg" mx="auto" sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          
+          {/* STEP 1: Choose Doctor */}
           <Card
-            elevation={6}
+            elevation={selectedDoctor ? 3 : 6}
             sx={{
               borderRadius: 3,
               background: 'white',
-              border: '1px solid',
-              borderColor: 'divider',
+              border: '2px solid',
+              borderColor: selectedDoctor ? 'success.main' : 'primary.main',
               transition: 'all 0.3s ease-in-out',
-              '&:hover': {
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-                transform: 'translateY(-2px)'
-              }
+              opacity: 1
             }}
           >
-            <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-              <Box mb={3}>
-                <Box display="flex" alignItems="center" gap={2} mb={1.5}>
-                  <Schedule color="primary" sx={{ fontSize: 28 }} />
-                  <Typography
-                    variant="h5"
-                    fontWeight="600"
-                    color="text.primary"
-                  >
-                    Choose Your Doctor
-                  </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 5 }}>
-                  Browse our available specialists
-                </Typography>
-              </Box>
-
-                <Box sx={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
-                  gap: 3, 
-                  maxHeight: 500, 
-                  overflowY: 'auto' 
-                }}>
+            <CardContent sx={{ p: { xs: 4, sm: 5 } }}>
+              {renderStepHeader(1, 3, "Choose Doctor", !!selectedDoctor, !selectedDoctor)}
+              
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
+                gap: 3, 
+                maxHeight: 500, 
+                overflowY: 'auto' 
+              }}>
                   {doctors.map((doctor) => (
                     <Fade in timeout={300} key={doctor.id}>
                       <Card
@@ -504,133 +583,248 @@ const PatientDashboard: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Date & Time Selection Section */}
+          {/* STEP 2: Pick Date & Time */}
           <Card
-            elevation={6}
+            elevation={selectedDate && selectedSlot ? 3 : 6}
             sx={{
               borderRadius: 3,
               background: 'white',
-              border: '1px solid',
-              borderColor: 'divider',
+              border: '2px solid',
+              borderColor: selectedDate && selectedSlot ? 'success.main' : (selectedDoctor ? 'primary.main' : 'grey.300'),
               transition: 'all 0.3s ease-in-out',
-              '&:hover': {
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-                transform: 'translateY(-2px)'
-              }
+              opacity: selectedDoctor ? 1 : 0.6,
+              pointerEvents: selectedDoctor ? 'auto' : 'none'
             }}
           >
-            <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-              <Box mb={3}>
-                <Box display="flex" alignItems="center" gap={2} mb={1.5}>
-                  <CalendarToday color="primary" sx={{ fontSize: 28 }} />
-                  <Typography
-                    variant="h5"
-                    fontWeight="600"
-                    color="text.primary"
-                  >
-                    Select Date & Time
+            <CardContent sx={{ p: { xs: 4, sm: 5 } }}>
+              {renderStepHeader(2, 3, "Pick Date & Time", !!(selectedDate && selectedSlot), !!(selectedDoctor && !(selectedDate && selectedSlot)))}
+              
+              {!selectedDoctor && (
+                <Box 
+                  sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    color: 'text.secondary'
+                  }}
+                >
+                  <CalendarToday sx={{ fontSize: 48, mb: 2, opacity: 0.3 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Please choose a doctor first
                   </Typography>
                 </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 5 }}>
-                  Pick your preferred appointment date and time slot
-                </Typography>
-              </Box>
+              )}
               
-              {/* Date Picker Section */}
-              <Box mb={4}>
-                <Typography 
-                  variant="subtitle2" 
-                  color="text.primary" 
-                  fontWeight="600"
-                  sx={{ mb: 1, fontSize: '0.875rem' }}
-                >
-                  Select Date
-                </Typography>
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
-                  <DatePicker
-                    value={selectedDate ? dayjs(selectedDate) : null}
-                    onChange={(newValue) => {
-                      if (newValue) {
-                        handleDateSelect(newValue.format('YYYY-MM-DD'));
-                      }
-                    }}
-                    minDate={dayjs().add(1, 'day')}
-                    disabled={!selectedDoctor}
-                    slotProps={{
-                      textField: {
-                        fullWidth: true,
-                        variant: 'outlined',
-                        placeholder: 'Choose your appointment date',
-                        InputProps: {
-                          startAdornment: (
-                            <CalendarToday sx={{ 
-                              color: 'primary.main', 
-                              mr: 1.5, 
-                              fontSize: 20,
-                              transition: 'all 0.2s ease-in-out'
-                            }} />
-                          ),
-                          sx: {
-                            height: 56,
-                            borderRadius: 3,
-                            px: 2,
-                            backgroundColor: selectedDate ? 'primary.50' : 'grey.50',
-                            transition: 'all 0.3s ease-in-out',
-                            '&:hover': {
-                              backgroundColor: 'primary.50',
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)'
-                            },
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: selectedDate ? 'primary.main' : 'grey.300',
-                              borderWidth: selectedDate ? 2 : 1,
-                              transition: 'all 0.2s ease-in-out'
-                            },
-                            '&:hover .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2
-                            },
-                            '&.Mui-focused': {
-                              backgroundColor: 'primary.50',
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 16px rgba(25, 118, 210, 0.2)'
-                            },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2,
-                              boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)'
-                            },
-                            '& input': {
-                              fontWeight: 500,
-                              color: selectedDate ? 'primary.main' : 'text.primary',
-                              transition: 'color 0.2s ease-in-out'
-                            }
-                          }
-                        }
-                      }
-                    }}
-                  />
-                </LocalizationProvider>
-              </Box>
+              {selectedDoctor && (
+                <Box mb={4}>
+                  {/* Swipeable Date Cards */}
+                  <Box mb={3}>
+                    <Typography variant="h6" fontWeight="700" color="text.primary" mb={2}>
+                      Select Appointment Date
+                    </Typography>
+                    
+                    {/* Date Cards Container */}
+                    <Box 
+                      sx={{ 
+                        overflowX: 'auto', 
+                        overflowY: 'hidden',
+                        pb: 2,
+                        '&::-webkit-scrollbar': {
+                          height: 4,
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          backgroundColor: 'grey.100',
+                          borderRadius: 2,
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          backgroundColor: 'primary.main',
+                          borderRadius: 2,
+                        },
+                      }}
+                    >
+                      <Box display="flex" gap={2} sx={{ width: 'max-content', pb: 1 }}>
+                        {Array.from({ length: 14 }, (_, index) => {
+                          const date = dayjs().add(index + 1, 'day');
+                          const dateString = date.format('YYYY-MM-DD');
+                          const isSelected = selectedDate === dateString;
+                          const isToday = date.isSame(dayjs(), 'day');
+                          const isWeekend = date.day() === 0 || date.day() === 6;
+                          
+                          return (
+                            <Card
+                              key={dateString}
+                              onClick={() => handleDateSelect(dateString)}
+                              elevation={isSelected ? 8 : 2}
+                              sx={{
+                                minWidth: 120,
+                                height: 140,
+                                cursor: 'pointer',
+                                borderRadius: 3,
+                                border: isSelected ? '3px solid' : '2px solid',
+                                borderColor: isSelected ? 'primary.main' : 'transparent',
+                                background: isSelected 
+                                  ? 'linear-gradient(135deg, #e3f2fd 0%, #f8f9ff 100%)'
+                                  : isWeekend 
+                                    ? 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)'
+                                    : 'white',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                '&:hover': {
+                                  transform: 'translateY(-4px) scale(1.03)',
+                                  boxShadow: isSelected 
+                                    ? '0 16px 48px rgba(25, 118, 210, 0.3)'
+                                    : '0 12px 32px rgba(0, 0, 0, 0.15)',
+                                  borderColor: 'primary.main',
+                                  background: isSelected 
+                                    ? 'linear-gradient(135deg, #e3f2fd 0%, #f8f9ff 100%)'
+                                    : 'linear-gradient(135deg, #f0f8ff 0%, #fafafa 100%)'
+                                },
+                                '&:active': {
+                                  transform: 'translateY(-2px) scale(1.01)'
+                                },
+                                '&:focus-visible': {
+                                  outline: '3px solid',
+                                  outlineColor: 'primary.main',
+                                  outlineOffset: '2px'
+                                }
+                              }}
+                            >
+                              <CardContent sx={{ 
+                                p: 2, 
+                                textAlign: 'center',
+                                height: '100%',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                position: 'relative'
+                              }}>
+                                {/* Selected Indicator */}
+                                {isSelected && (
+                                  <CheckCircle 
+                                    sx={{ 
+                                      position: 'absolute',
+                                      top: 8,
+                                      right: 8,
+                                      fontSize: 18,
+                                      color: 'primary.main'
+                                    }} 
+                                  />
+                                )}
+                                
+                                {/* Today Badge */}
+                                {isToday && (
+                                  <Chip 
+                                    label="Today" 
+                                    size="small"
+                                    sx={{
+                                      position: 'absolute',
+                                      top: 8,
+                                      left: 8,
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      bgcolor: 'error.main',
+                                      color: 'white',
+                                      height: 20
+                                    }}
+                                  />
+                                )}
+                                
+                                {/* Day of Week */}
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    color: isSelected ? 'primary.main' : 'text.secondary',
+                                    fontWeight: 700,
+                                    fontSize: '0.75rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.5,
+                                    mb: 1
+                                  }}
+                                >
+                                  {date.format('ddd')}
+                                </Typography>
+                                
+                                {/* Date Number */}
+                                <Typography 
+                                  variant="h4" 
+                                  sx={{ 
+                                    fontWeight: 800,
+                                    color: isSelected ? 'primary.main' : 'text.primary',
+                                    lineHeight: 1,
+                                    mb: 1,
+                                    fontSize: '1.8rem'
+                                  }}
+                                >
+                                  {date.format('D')}
+                                </Typography>
+                                
+                                {/* Month */}
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    color: isSelected ? 'primary.main' : 'text.secondary',
+                                    fontWeight: 600,
+                                    fontSize: '0.75rem',
+                                    textTransform: 'uppercase'
+                                  }}
+                                >
+                                  {date.format('MMM')}
+                                </Typography>
+                                
+                                {/* Availability Indicator */}
+                                <Box 
+                                  sx={{ 
+                                    position: 'absolute',
+                                    bottom: 8,
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    backgroundColor: isWeekend ? 'warning.main' : 'success.main',
+                                    animation: isSelected ? 'pulse 2s infinite' : 'none',
+                                    '@keyframes pulse': {
+                                      '0%': {
+                                        boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)'
+                                      },
+                                      '70%': {
+                                        boxShadow: '0 0 0 10px rgba(76, 175, 80, 0)'
+                                      },
+                                      '100%': {
+                                        boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)'
+                                      }
+                                    }
+                                  }}
+                                />
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                    
+                    {/* Helper Text */}
+                    <Box display="flex" alignItems="center" justifyContent="center" gap={3} mt={2}>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main' }} />
+                        <Typography variant="caption" color="text.secondary">Available</Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'warning.main' }} />
+                        <Typography variant="caption" color="text.secondary">Weekend</Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        👈 Swipe to see more dates
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
 
               {/* Enhanced Time Slots Section */}
               {availableSlots.length > 0 && (
                 <Box sx={{ mb: 4 }}>
-                  <Typography 
-                    variant="subtitle2" 
-                    color="text.primary" 
-                    fontWeight="600"
-                    sx={{ 
-                      mb: 3, 
-                      fontSize: '0.875rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1
-                    }}
-                  >
-                    <AccessTime color="primary" sx={{ fontSize: 18 }} />
-                    Available Time Slots
-                  </Typography>
                   
                   {/* Time Slot Grid */}
                   <Box 
@@ -794,369 +988,426 @@ const PatientDashboard: React.FC = () => {
           </Card>
 
 
-          {/* Appointment Details Section */}
-          {selectedSlot && (
-            <Card
-              elevation={6}
-              sx={{
-                borderRadius: 3,
-                background: 'white',
-                border: '1px solid',
-                borderColor: 'divider',
-                transition: 'all 0.3s ease-in-out',
-                '&:hover': {
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-                  transform: 'translateY(-2px)'
-                }
-              }}
-            >
-              <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                <Box mb={3}>
-                  <Box display="flex" alignItems="center" gap={2} mb={1.5}>
-                    <MedicalServices color="primary" sx={{ fontSize: 28 }} />
-                    <Typography
-                      variant="h5"
-                      fontWeight="600"
-                      color="text.primary"
-                    >
-                      Appointment Details
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 5 }}>
-                    Provide additional information for your visit
-                  </Typography>
-                </Box>
-                  
-                  {/* Patient Information */}
-                  <Box display="grid" gridTemplateColumns={{ xs: '1fr', md: '1fr 1fr' }} gap={3} mb={3}>
-                    <Box>
-                      <TextField
-                        fullWidth
-                        label="Patient Name"
-                        variant="outlined"
-                        value={patientName}
-                        onChange={(e) => {
-                          setPatientName(e.target.value);
-                          if (formErrors.patientName) {
-                            setFormErrors(prev => ({ ...prev, patientName: validatePatientName(e.target.value) }));
-                          }
-                        }}
-                        onBlur={() => {
-                          setFormErrors(prev => ({ ...prev, patientName: validatePatientName(patientName) }));
-                        }}
-                        error={!!formErrors.patientName}
-                        helperText={formErrors.patientName}
-                        InputProps={{
-                          startAdornment: (
-                            <Person sx={{ 
-                              color: patientName ? 'primary.main' : 'text.secondary', 
-                              mr: 1.5, 
-                              fontSize: 20,
-                              transition: 'color 0.2s ease-in-out'
-                            }} />
-                          ),
-                          sx: {
-                            transition: 'all 0.3s ease-in-out',
-                            '&:hover': {
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                            },
-                            '&.Mui-focused': {
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)'
-                            }
-                          }
-                        }}
-                        sx={{
-                          borderRadius: 2,
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 3
-                          },
-                          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main',
-                            borderWidth: 2
-                          },
-                          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)'
-                          }
-                        }}
-                        required
-                      />
-                    </Box>
-                    <Box>
-                      <TextField
-                        fullWidth
-                        label="Phone Number"
-                        variant="outlined"
-                        value={patientPhone}
-                        onChange={(e) => {
-                          setPatientPhone(e.target.value);
-                          if (formErrors.patientPhone) {
-                            setFormErrors(prev => ({ ...prev, patientPhone: validatePhoneNumber(e.target.value) }));
-                          }
-                        }}
-                        onBlur={() => {
-                          setFormErrors(prev => ({ ...prev, patientPhone: validatePhoneNumber(patientPhone) }));
-                        }}
-                        error={!!formErrors.patientPhone}
-                        helperText={formErrors.patientPhone}
-                        placeholder="+91-9876543210"
-                        InputProps={{
-                          startAdornment: (
-                            <Phone sx={{ 
-                              color: patientPhone && patientPhone !== '+91-' ? 'primary.main' : 'text.secondary', 
-                              mr: 1.5, 
-                              fontSize: 20,
-                              transition: 'color 0.2s ease-in-out'
-                            }} />
-                          ),
-                          sx: {
-                            transition: 'all 0.3s ease-in-out',
-                            '&:hover': {
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                            },
-                            '&.Mui-focused': {
-                              transform: 'translateY(-1px)',
-                              boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)'
-                            }
-                          }
-                        }}
-                        sx={{
-                          borderRadius: 2,
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 3
-                          },
-                          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'primary.main',
-                            borderWidth: 2
-                          },
-                          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)'
-                          }
-                        }}
-                        required
-                      />
-                    </Box>
-                  </Box>
-                  
-                  <Box mb={3}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel
-                        sx={{ 
-                          color: appointmentType ? 'primary.main' : 'text.secondary',
-                          '&.Mui-focused': {
-                            color: 'primary.main'
-                          }
-                        }}
-                      >
-                        Appointment Type
-                      </InputLabel>
-                      <Select
-                        value={appointmentType}
-                        onChange={(e) => setAppointmentType(e.target.value)}
-                        label="Appointment Type"
-                        startAdornment={
-                          <MedicalServices sx={{ 
-                            color: appointmentType ? 'primary.main' : 'text.secondary', 
-                            mr: 1.5, 
-                            fontSize: 20,
-                            transition: 'color 0.2s ease-in-out'
-                          }} />
-                        }
-                        sx={{
-                          borderRadius: 3,
-                          backgroundColor: appointmentType ? 'primary.50' : 'grey.50',
-                          transition: 'all 0.3s ease-in-out',
-                          '&:hover': {
-                            backgroundColor: 'primary.50',
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2
-                            }
-                          },
-                          '&.Mui-focused': {
-                            backgroundColor: 'primary.50',
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
-                            '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2,
-                              boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)'
-                            }
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            borderColor: appointmentType ? 'primary.main' : 'grey.300',
-                            borderWidth: appointmentType ? 2 : 1,
-                            transition: 'all 0.2s ease-in-out'
-                          }
-                        }}
-                      >
-                        <MenuItem value="consultation">
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <LocalHospital sx={{ fontSize: 16, color: 'primary.main' }} />
-                            Consultation
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="follow_up">
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Schedule sx={{ fontSize: 16, color: 'info.main' }} />
-                            Follow-up
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="routine_checkup">
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <CheckCircle sx={{ fontSize: 16, color: 'success.main' }} />
-                            Routine Checkup
-                          </Box>
-                        </MenuItem>
-                        <MenuItem value="emergency">
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <NotificationsActive sx={{ fontSize: 16, color: 'error.main' }} />
-                            Emergency
-                          </Box>
-                        </MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Box>
-                  
-                  <Box mb={3}>
-                    <TextField
-                      label="Notes (Optional)"
-                      multiline
-                      rows={3}
-                      fullWidth
-                      variant="outlined"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Describe your symptoms or reason for visit..."
-                      InputLabelProps={{
-                        sx: {
-                          color: notes ? 'primary.main' : 'text.secondary',
-                          '&.Mui-focused': {
-                            color: 'primary.main'
-                          }
-                        }
-                      }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 3,
-                          backgroundColor: notes ? 'primary.50' : 'grey.50',
-                          transition: 'all 0.3s ease-in-out',
-                          '&:hover': {
-                            backgroundColor: 'primary.50',
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                            '& fieldset': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2
-                            }
-                          },
-                          '&.Mui-focused': {
-                            backgroundColor: 'primary.50',
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 4px 12px rgba(25, 118, 210, 0.15)',
-                            '& fieldset': {
-                              borderColor: 'primary.main',
-                              borderWidth: 2,
-                              boxShadow: '0 0 0 3px rgba(25, 118, 210, 0.1)'
-                            }
-                          },
-                          '& fieldset': {
-                            borderColor: notes ? 'primary.main' : 'grey.300',
-                            borderWidth: notes ? 2 : 1,
-                            transition: 'all 0.2s ease-in-out'
-                          },
-                          '& textarea': {
-                            fontWeight: 500,
-                            color: notes ? 'primary.main' : 'text.primary',
-                            transition: 'color 0.2s ease-in-out'
-                          }
-                        }
-                      }}
-                    />
-                  </Box>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Book Button */}
-          {selectedSlot && (
-            <Card
-              elevation={6}
-              sx={{
-                borderRadius: 3,
-                background: 'linear-gradient(45deg, #4CAF50 30%, #8BC34A 90%)',
-                border: 'none',
-                transition: 'all 0.3s ease-in-out',
-                '&:hover': {
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 12px 40px rgba(76, 175, 80, 0.4)'
-                }
-              }}
-            >
-              <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                <Button
-                  onClick={handleBookAppointment}
-                  disabled={bookingLoading}
-                  variant="contained"
-                  fullWidth
-                  size="large"
-                  sx={{
-                    py: 2.5,
-                    borderRadius: 3,
-                    background: 'transparent',
-                    color: 'white',
-                    fontSize: '1.125rem',
-                    fontWeight: '600',
-                    textTransform: 'none',
-                    boxShadow: 'none',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      boxShadow: 'none',
-                      transform: 'translateY(-2px)',
-                      '& .button-icon': {
-                        transform: 'scale(1.1) rotate(5deg)'
-                      }
-                    },
-                    '&:active': {
-                      transform: 'translateY(0px)'
-                    },
-                    '&:disabled': {
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      transform: 'none'
-                    }
+          {/* STEP 3: Progressive Form Cards */}
+          <Card
+            elevation={6}
+            sx={{
+              borderRadius: 3,
+              background: 'white',
+              border: '2px solid',
+              borderColor: selectedSlot ? 'primary.main' : 'grey.300',
+              transition: 'all 0.3s ease-in-out',
+              opacity: selectedSlot ? 1 : 0.6,
+              pointerEvents: selectedSlot ? 'auto' : 'none'
+            }}
+          >
+            <CardContent sx={{ p: { xs: 4, sm: 5 } }}>
+              {renderStepHeader(3, 3, "Your Details", formStepsCompleted.every(Boolean), !!selectedSlot)}
+              
+              {!selectedSlot && (
+                <Box 
+                  sx={{ 
+                    textAlign: 'center', 
+                    py: 4,
+                    color: 'text.secondary'
                   }}
                 >
-                  {bookingLoading ? (
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      <CircularProgress size={22} color="inherit" />
-                      <Typography variant="inherit" fontWeight="600">
-                        Booking your appointment...
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Box display="flex" alignItems="center" gap={1.5}>
-                      <Add 
-                        className="button-icon"
+                  <Person sx={{ fontSize: 48, mb: 2, opacity: 0.3 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Please select a date and time first
+                  </Typography>
+                </Box>
+              )}
+              
+              {selectedSlot && (
+                <Box>
+                  {/* Progress Indicator */}
+                  <Box display="flex" alignItems="center" gap={1} mb={4}>
+                    {[0, 1, 2, 3].map((stepIndex) => (
+                      <Box key={stepIndex} display="flex" alignItems="center" flex={1}>
+                        <Box
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: 
+                              formStepsCompleted[stepIndex] ? 'success.main' :
+                              currentFormStep === stepIndex ? 'primary.main' : 'grey.300',
+                            color: 'white',
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            transition: 'all 0.3s ease-in-out',
+                            transform: currentFormStep === stepIndex ? 'scale(1.1)' : 'scale(1)',
+                            boxShadow: currentFormStep === stepIndex ? '0 4px 12px rgba(25, 118, 210, 0.3)' : 'none'
+                          }}
+                        >
+                          {formStepsCompleted[stepIndex] ? <CheckCircle sx={{ fontSize: 18 }} /> : stepIndex + 1}
+                        </Box>
+                        {stepIndex < 3 && (
+                          <Box
+                            sx={{
+                              flex: 1,
+                              height: 2,
+                              backgroundColor: formStepsCompleted[stepIndex] ? 'success.main' : 'grey.300',
+                              mx: 1,
+                              transition: 'all 0.3s ease-in-out'
+                            }}
+                          />
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {/* Form Card Container */}
+                  <Box 
+                    sx={{ 
+                      position: 'relative',
+                      minHeight: 300,
+                      overflow: 'hidden',
+                      borderRadius: 3,
+                      background: 'linear-gradient(135deg, #f8f9ff 0%, #fafafa 100%)',
+                      p: 0
+                    }}
+                  >
+                    {/* Step 0: Name */}
+                    <Fade in={currentFormStep === 0} timeout={300}>
+                      <Box 
                         sx={{ 
-                          fontSize: 22,
-                          transition: 'all 0.3s ease-in-out'
-                        }} 
-                      />
-                      <Typography variant="inherit" fontWeight="600">
-                        Book Appointment
-                      </Typography>
-                    </Box>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+                          display: currentFormStep === 0 ? 'block' : 'none',
+                          p: 4,
+                          textAlign: 'center'
+                        }}
+                      >
+                        <Person sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                        <Typography variant="h5" fontWeight="700" color="text.primary" mb={1}>
+                          {getStepTitle(0)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" mb={4}>
+                          {getStepSubtitle(0)}
+                        </Typography>
+                        
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          placeholder="Enter your full name"
+                          value={patientName}
+                          onChange={(e) => setPatientName(e.target.value)}
+                          error={!!formErrors.patientName}
+                          helperText={formErrors.patientName}
+                          autoFocus
+                          sx={{
+                            mb: 3,
+                            '& .MuiOutlinedInput-root': {
+                              height: 56,
+                              borderRadius: 3,
+                              backgroundColor: 'white',
+                              fontSize: '1.1rem',
+                              '&:hover fieldset': {
+                                borderColor: 'primary.main',
+                                borderWidth: 2
+                              }
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: (
+                              <Edit sx={{ 
+                                color: patientName ? 'primary.main' : 'text.secondary', 
+                                mr: 1.5, 
+                                fontSize: 20
+                              }} />
+                            )
+                          }}
+                        />
+                        
+                        <Button
+                          onClick={handleFormStepNext}
+                          disabled={!canProceedToNextStep(0)}
+                          variant="contained"
+                          size="large"
+                          endIcon={<ArrowForward />}
+                          sx={{
+                            borderRadius: 3,
+                            height: 48,
+                            minWidth: 200,
+                            fontSize: '1rem',
+                            fontWeight: 600,
+                            textTransform: 'none',
+                            boxShadow: canProceedToNextStep(0) ? '0 8px 24px rgba(25, 118, 210, 0.3)' : 'none',
+                            '&:disabled': {
+                              backgroundColor: 'grey.300',
+                              color: 'grey.600'
+                            }
+                          }}
+                        >
+                          Continue
+                        </Button>
+                      </Box>
+                    </Fade>
+
+                    {/* Step 1: Phone */}
+                    <Fade in={currentFormStep === 1} timeout={300}>
+                      <Box 
+                        sx={{ 
+                          display: currentFormStep === 1 ? 'block' : 'none',
+                          p: 4,
+                          textAlign: 'center'
+                        }}
+                      >
+                        <Phone sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                        <Typography variant="h5" fontWeight="700" color="text.primary" mb={1}>
+                          {getStepTitle(1)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" mb={4}>
+                          {getStepSubtitle(1)}
+                        </Typography>
+                        
+                        <TextField
+                          fullWidth
+                          variant="outlined"
+                          placeholder="+91-9876543210"
+                          value={patientPhone}
+                          onChange={(e) => setPatientPhone(e.target.value)}
+                          error={!!formErrors.patientPhone}
+                          helperText={formErrors.patientPhone || "We'll send appointment confirmation via SMS"}
+                          autoFocus
+                          sx={{
+                            mb: 3,
+                            '& .MuiOutlinedInput-root': {
+                              height: 56,
+                              borderRadius: 3,
+                              backgroundColor: 'white',
+                              fontSize: '1.1rem',
+                              '&:hover fieldset': {
+                                borderColor: 'primary.main',
+                                borderWidth: 2
+                              }
+                            }
+                          }}
+                          InputProps={{
+                            startAdornment: (
+                              <Phone sx={{ 
+                                color: patientPhone && patientPhone !== '+91-' ? 'primary.main' : 'text.secondary', 
+                                mr: 1.5, 
+                                fontSize: 20
+                              }} />
+                            )
+                          }}
+                        />
+                        
+                        <Box display="flex" gap={2} justifyContent="center">
+                          <Button
+                            onClick={handleFormStepBack}
+                            variant="outlined"
+                            size="large"
+                            startIcon={<ArrowBack />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 120,
+                              textTransform: 'none'
+                            }}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            onClick={handleFormStepNext}
+                            disabled={!canProceedToNextStep(1)}
+                            variant="contained"
+                            size="large"
+                            endIcon={<ArrowForward />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 120,
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              textTransform: 'none',
+                              boxShadow: canProceedToNextStep(1) ? '0 8px 24px rgba(25, 118, 210, 0.3)' : 'none'
+                            }}
+                          >
+                            Continue
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Fade>
+
+                    {/* Step 2: Appointment Type */}
+                    <Fade in={currentFormStep === 2} timeout={300}>
+                      <Box 
+                        sx={{ 
+                          display: currentFormStep === 2 ? 'block' : 'none',
+                          p: 4,
+                          textAlign: 'center'
+                        }}
+                      >
+                        <MedicalServices sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                        <Typography variant="h5" fontWeight="700" color="text.primary" mb={1}>
+                          {getStepTitle(2)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" mb={4}>
+                          {getStepSubtitle(2)}
+                        </Typography>
+                        
+                        <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: 'repeat(2, 1fr)' }} gap={2} mb={3}>
+                          {[
+                            { value: 'consultation', label: 'General Consultation', icon: Healing, color: '#2196f3' },
+                            { value: 'routine_checkup', label: 'Routine Checkup', icon: CheckCircle, color: '#4caf50' },
+                            { value: 'emergency', label: 'Emergency Visit', icon: NotificationsActive, color: '#f44336' },
+                            { value: 'follow_up', label: 'Follow-up Visit', icon: FavoriteRounded, color: '#9c27b0' }
+                          ].map((type) => {
+                            const IconComponent = type.icon;
+                            return (
+                              <Card
+                                key={type.value}
+                                onClick={() => setAppointmentType(type.value)}
+                                sx={{
+                                  cursor: 'pointer',
+                                  p: 3,
+                                  textAlign: 'center',
+                                  border: appointmentType === type.value ? '3px solid' : '2px solid',
+                                  borderColor: appointmentType === type.value ? 'primary.main' : 'grey.300',
+                                  backgroundColor: appointmentType === type.value ? 'primary.50' : 'white',
+                                  transition: 'all 0.3s ease-in-out',
+                                  '&:hover': {
+                                    transform: 'translateY(-2px)',
+                                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+                                    borderColor: 'primary.main'
+                                  }
+                                }}
+                              >
+                                <IconComponent sx={{ fontSize: 32, color: type.color, mb: 1 }} />
+                                <Typography variant="body2" fontWeight="600" color="text.primary">
+                                  {type.label}
+                                </Typography>
+                              </Card>
+                            );
+                          })}
+                        </Box>
+                        
+                        <Box display="flex" gap={2} justifyContent="center">
+                          <Button
+                            onClick={handleFormStepBack}
+                            variant="outlined"
+                            size="large"
+                            startIcon={<ArrowBack />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 120,
+                              textTransform: 'none'
+                            }}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            onClick={handleFormStepNext}
+                            disabled={!canProceedToNextStep(2)}
+                            variant="contained"
+                            size="large"
+                            endIcon={<ArrowForward />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 120,
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              textTransform: 'none',
+                              boxShadow: canProceedToNextStep(2) ? '0 8px 24px rgba(25, 118, 210, 0.3)' : 'none'
+                            }}
+                          >
+                            Continue
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Fade>
+
+                    {/* Step 3: Notes & Final Booking */}
+                    <Fade in={currentFormStep === 3} timeout={300}>
+                      <Box 
+                        sx={{ 
+                          display: currentFormStep === 3 ? 'block' : 'none',
+                          p: 4,
+                          textAlign: 'center'
+                        }}
+                      >
+                        <NotificationsActive sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
+                        <Typography variant="h5" fontWeight="700" color="text.primary" mb={1}>
+                          {getStepTitle(3)}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" mb={4}>
+                          {getStepSubtitle(3)}
+                        </Typography>
+                        
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={3}
+                          variant="outlined"
+                          placeholder="Describe your symptoms or reason for visit (optional)"
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          sx={{
+                            mb: 3,
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 3,
+                              backgroundColor: 'white',
+                              '&:hover fieldset': {
+                                borderColor: 'primary.main',
+                                borderWidth: 2
+                              }
+                            }
+                          }}
+                        />
+                        
+                        <Box display="flex" gap={2} justifyContent="center">
+                          <Button
+                            onClick={handleFormStepBack}
+                            variant="outlined"
+                            size="large"
+                            startIcon={<ArrowBack />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 120,
+                              textTransform: 'none'
+                            }}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            onClick={handleBookAppointment}
+                            disabled={bookingLoading}
+                            variant="contained"
+                            size="large"
+                            startIcon={bookingLoading ? <CircularProgress size={20} /> : <Add />}
+                            sx={{
+                              borderRadius: 3,
+                              height: 48,
+                              minWidth: 160,
+                              fontSize: '1rem',
+                              fontWeight: 600,
+                              textTransform: 'none',
+                              background: 'linear-gradient(45deg, #4CAF50 30%, #8BC34A 90%)',
+                              boxShadow: '0 8px 24px rgba(76, 175, 80, 0.3)',
+                              '&:hover': {
+                                background: 'linear-gradient(45deg, #43A047 30%, #7CB342 90%)',
+                                transform: 'translateY(-2px)'
+                              }
+                            }}
+                          >
+                            {bookingLoading ? 'Booking...' : 'Book Appointment'}
+                          </Button>
+                        </Box>
+                      </Box>
+                    </Fade>
+                  </Box>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
         </Box>
       </Box>
 

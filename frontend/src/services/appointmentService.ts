@@ -151,14 +151,46 @@ class AppointmentService {
 
   // Helper function to format time for display
   formatTimeSlot(slot: TimeSlot): string {
-    return `${slot.start_time} - ${slot.end_time}`;
+    const formatTime12Hour = (time: string, includePeriod: boolean = true): string => {
+      const [hours, minutes] = time.split(':');
+      const hour = parseInt(hours);
+      const isPM = hour >= 12;
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      const period = isPM ? 'PM' : 'AM';
+      return includePeriod ? `${hour12}:${minutes} ${period}` : `${hour12}:${minutes}`;
+    };
+
+    const startHour = parseInt(slot.start_time.split(':')[0]);
+    const endHour = parseInt(slot.end_time.split(':')[0]);
+    
+    // Check if both times are in the same period (AM/PM)
+    const startIsPM = startHour >= 12;
+    const endIsPM = endHour >= 12;
+    const samePeriod = startIsPM === endIsPM;
+    
+    const startTime12 = formatTime12Hour(slot.start_time, !samePeriod);
+    const endTime12 = formatTime12Hour(slot.end_time, true);
+    
+    // Determine if it's morning, afternoon, or evening based on start time
+    const timeOfDay = startHour < 12 ? '🌅 Morning' : startHour < 17 ? '☀️ Afternoon' : '🌅 Evening';
+    
+    return `${startTime12} - ${endTime12} • ${timeOfDay}`;
   }
 
   // Helper function to format appointment date/time
   formatAppointmentDateTime(appointment: Appointment): string {
     const date = new Date(appointment.appointment_date);
     const dateStr = date.toLocaleDateString();
-    return `${dateStr} ${appointment.start_time} - ${appointment.end_time}`;
+    
+    // Create a mock time slot object to reuse the formatting logic
+    const mockSlot: TimeSlot = {
+      start_time: appointment.start_time,
+      end_time: appointment.end_time,
+      available: true
+    };
+    
+    const timeStr = this.formatTimeSlot(mockSlot);
+    return `${dateStr} ${timeStr}`;
   }
 }
 
