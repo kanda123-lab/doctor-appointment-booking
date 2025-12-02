@@ -1,5 +1,6 @@
 const Appointment = require('../models/Appointment');
 const logger = require('../utils/logger');
+const NotificationService = require('../services/notificationService');
 
 class AppointmentController {
   // Create a new appointment (patients)
@@ -26,6 +27,20 @@ class AppointmentController {
         date: appointment_date,
         time: `${start_time}-${end_time}`
       });
+
+      // Send real-time notification for new appointment
+      await NotificationService.sendAppointmentNotification({
+        appointmentId: appointment.id,
+        patientId: appointment.patient_id,
+        doctorId: doctor_id,
+        patientName: patient_name,
+        patientPhone: patient_phone,
+        doctorName: 'Doctor', // TODO: Get actual doctor name from database
+        appointmentDate: appointment_date,
+        appointmentTime: start_time,
+        status: 'confirmed',
+        appointmentType: appointment_type || 'appointment'
+      }, 'new_appointment');
 
       res.status(201).json({
         status: 'success',
@@ -149,6 +164,20 @@ class AppointmentController {
         updatedBy: 'system'
       });
 
+      // Send real-time notification for status update
+      await NotificationService.sendAppointmentNotification({
+        appointmentId: id,
+        patientId: appointment.patient_id,
+        doctorId: appointment.doctor_id,
+        patientName: appointment.patient_name || 'Patient',
+        patientPhone: appointment.patient_phone,
+        doctorName: 'Doctor', // TODO: Get actual doctor name from database
+        appointmentDate: appointment.appointment_date,
+        appointmentTime: appointment.start_time,
+        status: status,
+        appointmentType: appointment.appointment_type || 'appointment'
+      }, 'status_update');
+
       res.json({
         status: 'success',
         message: 'Appointment status updated successfully',
@@ -210,6 +239,20 @@ class AppointmentController {
         cancelledBy: 'system',
         reason: cancellation_reason
       });
+
+      // Send real-time notification for cancellation
+      await NotificationService.sendAppointmentNotification({
+        appointmentId: id,
+        patientId: appointment.patient_id,
+        doctorId: appointment.doctor_id,
+        patientName: appointment.patient_name || 'Patient',
+        patientPhone: appointment.patient_phone,
+        doctorName: 'Doctor', // TODO: Get actual doctor name from database
+        appointmentDate: appointment.appointment_date,
+        appointmentTime: appointment.start_time,
+        status: 'cancelled',
+        appointmentType: appointment.appointment_type || 'appointment'
+      }, 'cancellation');
 
       res.json({
         status: 'success',

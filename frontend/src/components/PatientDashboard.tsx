@@ -40,8 +40,13 @@ import {
   ArrowForward,
   Edit,
   Healing,
-  FavoriteRounded
+  FavoriteRounded,
+  Today,
+  EventNote
 } from '@mui/icons-material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 
 const PatientDashboard: React.FC = () => {
@@ -111,6 +116,7 @@ const PatientDashboard: React.FC = () => {
   const [patientPhone, setPatientPhone] = useState('+91-');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, data: null as CreateAppointmentData | null });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   
   // Progressive form state
   const [currentFormStep, setCurrentFormStep] = useState(0);
@@ -621,6 +627,118 @@ const PatientDashboard: React.FC = () => {
                     <Typography variant="h6" fontWeight="700" color="text.primary" mb={2}>
                       Select Appointment Date
                     </Typography>
+
+                    {/* Quick Date Selection */}
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight="700" sx={{ 
+                        mb: 2, 
+                        display: 'block',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                      }}>
+                        Quick Date Selection
+                      </Typography>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: 2, 
+                        overflowX: 'auto',
+                        pb: 1,
+                        '&::-webkit-scrollbar': { height: 4 },
+                        '&::-webkit-scrollbar-track': { backgroundColor: 'grey.100', borderRadius: 2 },
+                        '&::-webkit-scrollbar-thumb': { backgroundColor: 'primary.main', borderRadius: 2 }
+                      }}>
+                        {[
+                          { 
+                            label: 'Today', 
+                            date: new Date().toISOString().split('T')[0],
+                            icon: Today
+                          },
+                          { 
+                            label: 'Tomorrow', 
+                            date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+                            icon: EventNote
+                          },
+                          { 
+                            label: 'Pick Date', 
+                            date: null,
+                            icon: CalendarToday
+                          }
+                        ].map((dateOption, index) => {
+                          const isSelected = selectedDate === dateOption.date;
+                          const isPickDate = dateOption.date === null;
+                          
+                          return (
+                            <Chip
+                              key={dateOption.label}
+                              label={dateOption.label}
+                              onClick={() => {
+                                if (isPickDate) {
+                                  setDatePickerOpen(true);
+                                } else {
+                                  handleDateSelect(dateOption.date!);
+                                }
+                              }}
+                              variant={isSelected ? 'filled' : 'outlined'}
+                              icon={dateOption.icon ? <dateOption.icon sx={{ fontSize: 18 }} /> : undefined}
+                              sx={{
+                                height: 44,
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                borderRadius: 25,
+                                minWidth: isPickDate ? 140 : 100,
+                                cursor: 'pointer',
+                                backgroundColor: isSelected ? 'primary.main' : 'transparent',
+                                color: isSelected ? 'white' : 'text.primary',
+                                borderColor: isSelected ? 'primary.main' : 'grey.300',
+                                '&:hover': {
+                                  backgroundColor: isSelected ? 'primary.dark' : 'primary.light',
+                                  color: isSelected ? 'white' : 'primary.main',
+                                  borderColor: 'primary.main'
+                                }
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    </Box>
+
+                    {/* Mobile-First Date Picker */}
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DatePicker
+                        open={datePickerOpen}
+                        onClose={() => setDatePickerOpen(false)}
+                        value={selectedDate ? dayjs(selectedDate) : dayjs()}
+                        onChange={(newValue) => {
+                          if (newValue) {
+                            handleDateSelect(newValue.format('YYYY-MM-DD'));
+                            setDatePickerOpen(false);
+                          }
+                        }}
+                        minDate={dayjs()}
+                        slotProps={{
+                          textField: {
+                            sx: { display: 'none' }
+                          },
+                          mobilePaper: {
+                            sx: {
+                              '& .MuiPickersCalendarHeader-root': {
+                                paddingLeft: 2,
+                                paddingRight: 2
+                              },
+                              '& .MuiDayCalendar-weekDayLabel': {
+                                fontSize: '0.875rem',
+                                fontWeight: 600
+                              },
+                              '& .MuiPickersDay-root': {
+                                fontSize: '0.875rem',
+                                width: 40,
+                                height: 40
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </LocalizationProvider>
                     
                     {/* Date Cards Container */}
                     <Box 

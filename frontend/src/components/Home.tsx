@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -7,19 +7,15 @@ import {
   Card,
   CardContent,
   Button,
-  Grid,
-  Avatar,
-  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Rating,
+  CircularProgress,
   Fab,
-  Tooltip,
-  Zoom,
-  Fade,
-  Slide,
-  useTheme,
-  useMediaQuery,
-  Backdrop,
-  IconButton,
-  Paper
+  Alert
 } from '@mui/material';
 import {
   LocalHospital,
@@ -27,514 +23,366 @@ import {
   Security,
   Speed,
   AccessTime,
-  Close,
-  KeyboardArrowRight,
-  Star,
-  Verified
+  Reviews,
+  Send
 } from '@mui/icons-material';
-import { keyframes } from '@mui/system';
-
-// Animation keyframes
-const pulse = keyframes`
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.7);
-  }
-  70% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 10px rgba(25, 118, 210, 0);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(25, 118, 210, 0);
-  }
-`;
-
-const float = keyframes`
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
-  100% { transform: translateY(0px); }
-`;
-
-const gradientShift = keyframes`
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-`;
+import { ReviewService, ReviewData } from '../services/reviewService';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [currentTagline, setCurrentTagline] = useState(0);
-  const [showFloatingButtons, setShowFloatingButtons] = useState(true);
+  
+  // Review modal states
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [rating, setRating] = useState<number | null>(0);
+  const [reviewText, setReviewText] = useState('');
+  const [reviewerName, setReviewerName] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
 
-  const taglines = [
-    'Safe and Secure',
-    'Lightning Fast Queues',
-    'Your Health First',
-    'Available 24/7',
-    'Professional Care'
-  ];
-
-  // Cycle through taglines
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTagline((prev) => (prev + 1) % taglines.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [taglines.length]);
-
-  // Auto-show onboarding for first-time users
-  useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
-    if (!hasSeenOnboarding) {
-      setTimeout(() => setShowOnboarding(true), 2000);
+  const handleReviewSubmit = async () => {
+    if (!rating || !reviewText.trim() || !reviewerName.trim()) {
+      return;
     }
-  }, []);
 
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-    localStorage.setItem('hasSeenOnboarding', 'true');
+    if (reviewText.trim().length < 5) {
+      alert('Comment must be at least 5 characters long');
+      return;
+    }
+
+    setSubmittingReview(true);
+
+    try {
+      const reviewData: ReviewData = {
+        rating: rating,
+        comment: reviewText.trim(),
+        reviewer_name: reviewerName.trim(),
+        is_anonymous: false
+      };
+
+      await ReviewService.createReview(reviewData);
+      setReviewSuccess(true);
+      
+      // Reset form
+      setRating(0);
+      setReviewText('');
+      setReviewerName('');
+      
+      setTimeout(() => {
+        setReviewOpen(false);
+        setReviewSuccess(false);
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      alert('Failed to submit review. Please try again.');
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
+  const features = [
+    {
+      icon: <PersonAdd sx={{ fontSize: 40, color: 'primary.main' }} />,
+      title: 'Easy Registration',
+      description: 'Quick and simple registration process for patients and doctors.'
+    },
+    {
+      icon: <AccessTime sx={{ fontSize: 40, color: 'primary.main' }} />,
+      title: '24/7 Availability',
+      description: 'Round-the-clock access to healthcare services and support.'
+    },
+    {
+      icon: <Security sx={{ fontSize: 40, color: 'primary.main' }} />,
+      title: 'Secure & Private',
+      description: 'Your health data is protected with enterprise-grade security.'
+    },
+    {
+      icon: <Speed sx={{ fontSize: 40, color: 'primary.main' }} />,
+      title: 'Fast Service',
+      description: 'Quick appointment booking and efficient healthcare delivery.'
+    }
+  ];
+
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: 'linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe)',
-        backgroundSize: '400% 400%',
-        animation: `${gradientShift} 15s ease infinite`,
-        position: 'relative',
-        overflow: 'hidden'
-      }}
-    >
-      {/* Floating Background Elements */}
-      <Box
+    <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50' }}>
+      {/* Hero Section */}
+      <Container
+        maxWidth={false}
         sx={{
-          position: 'absolute',
-          top: '10%',
-          left: '10%',
-          width: 100,
-          height: 100,
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          animation: `${float} 6s ease-in-out infinite`,
-          display: { xs: 'none', md: 'block' }
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          minHeight: '70vh',
+          display: 'flex',
+          alignItems: 'center',
+          color: 'white',
+          position: 'relative',
+          overflow: 'hidden'
         }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          top: '60%',
-          right: '15%',
-          width: 60,
-          height: 60,
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          animation: `${float} 8s ease-in-out infinite`,
-          animationDelay: '2s',
-          display: { xs: 'none', md: 'block' }
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: '20%',
-          left: '20%',
-          width: 80,
-          height: 80,
-          background: 'rgba(255, 255, 255, 0.1)',
-          borderRadius: '50%',
-          animation: `${float} 7s ease-in-out infinite`,
-          animationDelay: '4s',
-          display: { xs: 'none', md: 'block' }
-        }}
-      />
-
-      <Container maxWidth="lg" sx={{ pt: { xs: 4, md: 8 }, pb: 4, position: 'relative', zIndex: 1 }}>
-        <Grid container spacing={4} sx={{ minHeight: '90vh', alignItems: 'center' }}>
-          {/* Hero Section */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Fade in timeout={1000}>
-              <Box textAlign={{ xs: 'center', md: 'left' }}>
-                {/* Hero Icon with Animation */}
-                <Zoom in timeout={1200}>
-                  <Avatar
-                    sx={{
-                      width: { xs: 80, md: 120 },
-                      height: { xs: 80, md: 120 },
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      mb: 3,
-                      mx: { xs: 'auto', md: 0 },
-                      animation: `${pulse} 3s infinite`,
-                      boxShadow: '0 20px 40px rgba(102, 126, 234, 0.4)'
-                    }}
-                  >
-                    <LocalHospital sx={{ fontSize: { xs: 40, md: 60 }, color: 'white' }} />
-                  </Avatar>
-                </Zoom>
-
-                {/* Main Headline */}
-                <Typography
-                  variant={isMobile ? 'h3' : 'h2'}
-                  fontWeight="800"
+      >
+        <Container maxWidth="lg">
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: 'center',
+            gap: 4
+          }}>
+            <Box sx={{ flex: 1, textAlign: { xs: 'center', md: 'left' } }}>
+              <Typography
+                variant="h2"
+                component="h1"
+                gutterBottom
+                sx={{ fontWeight: 'bold', fontSize: { xs: '2.5rem', md: '3.5rem' } }}
+              >
+                Your Health, Our Priority
+              </Typography>
+              <Typography
+                variant="h5"
+                paragraph
+                sx={{ opacity: 0.9, mb: 4, fontSize: { xs: '1.1rem', md: '1.25rem' } }}
+              >
+                Modern healthcare management system for seamless doctor-patient interactions
+              </Typography>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: 2,
+                justifyContent: { xs: 'center', md: 'flex-start' }
+              }}>
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={() => navigate('/patient')}
                   sx={{
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-                    backgroundClip: 'text',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    mb: 2,
-                    lineHeight: 1.2
+                    bgcolor: 'rgba(255,255,255,0.2)',
+                    backdropFilter: 'blur(10px)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' },
+                    py: 2,
+                    px: 4,
+                    fontSize: '1.1rem',
+                    minWidth: 200
                   }}
                 >
-                  Virtual Queue Management
-                </Typography>
-
-                {/* Subtitle */}
-                <Typography
-                  variant="h6"
+                  Patient Portal
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="large"
+                  onClick={() => navigate('/doctor')}
                   sx={{
-                    color: 'rgba(255, 255, 255, 0.9)',
-                    mb: 2,
-                    fontWeight: 400
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    color: 'white',
+                    '&:hover': { 
+                      borderColor: 'white',
+                      bgcolor: 'rgba(255,255,255,0.1)'
+                    },
+                    py: 2,
+                    px: 4,
+                    fontSize: '1.1rem',
+                    minWidth: 200
                   }}
                 >
-                  Access healthcare services with ease
-                </Typography>
-
-                {/* Animated Tagline */}
-                <Box sx={{ height: 40, mb: 4 }}>
-                  <Fade
-                    in
-                    key={currentTagline}
-                    timeout={500}
-                  >
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: 'rgba(255, 255, 255, 0.8)',
-                        fontStyle: 'italic',
-                        fontSize: '1.1rem'
-                      }}
-                    >
-                      ✨ {taglines[currentTagline]}
-                    </Typography>
-                  </Fade>
-                </Box>
+                  Doctor Portal
+                </Button>
               </Box>
-            </Fade>
-          </Grid>
-
-          {/* Interactive Portal Cards */}
-          <Grid size={{ xs: 12, md: 6 }}>
-            <Box sx={{ pl: { md: 4 } }}>
-              <Grid container spacing={3}>
-                {/* Doctor Portal Card */}
-                <Grid size={12}>
-                  <Slide in timeout={1000} direction="left">
-                    <Card
-                      onClick={() => navigate('/doctor')}
-                      sx={{
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: 'white',
-                        cursor: 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                        transform: 'scale(1)',
-                        border: '2px solid transparent',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&:hover': {
-                          transform: 'scale(1.02) translateY(-8px)',
-                          boxShadow: '0 25px 50px rgba(102, 126, 234, 0.4)',
-                          '&::before': {
-                            opacity: 1
-                          }
-                        },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%)',
-                          opacity: 0,
-                          transition: 'opacity 0.6s'
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-                        <Box display="flex" alignItems="center" gap={3}>
-                          <Avatar
-                            sx={{
-                              width: 60,
-                              height: 60,
-                              bgcolor: 'rgba(255, 255, 255, 0.2)',
-                              animation: `${pulse} 4s infinite`
-                            }}
-                          >
-                            <LocalHospital sx={{ fontSize: 30 }} />
-                          </Avatar>
-                          <Box flex={1}>
-                            <Typography variant="h5" fontWeight="700" mb={1}>
-                              Doctor Portal
-                            </Typography>
-                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
-                              Manage appointments, view patient records, and streamline your practice
-                            </Typography>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Typography variant="body2" fontWeight="600">
-                                Access Now
-                              </Typography>
-                              <KeyboardArrowRight />
-                            </Box>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Slide>
-                </Grid>
-
-                {/* Patient Portal Card */}
-                <Grid size={12}>
-                  <Slide in timeout={1200} direction="left">
-                    <Card
-                      onClick={() => navigate('/patient')}
-                      sx={{
-                        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                        color: 'white',
-                        cursor: 'pointer',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                        transform: 'scale(1)',
-                        border: '2px solid transparent',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&:hover': {
-                          transform: 'scale(1.02) translateY(-8px)',
-                          boxShadow: '0 25px 50px rgba(240, 147, 251, 0.4)',
-                          '&::before': {
-                            opacity: 1
-                          }
-                        },
-                        '&::before': {
-                          content: '""',
-                          position: 'absolute',
-                          inset: 0,
-                          background: 'linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%)',
-                          opacity: 0,
-                          transition: 'opacity 0.6s'
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-                        <Box display="flex" alignItems="center" gap={3}>
-                          <Avatar
-                            sx={{
-                              width: 60,
-                              height: 60,
-                              bgcolor: 'rgba(255, 255, 255, 0.2)',
-                              animation: `${pulse} 4s infinite`,
-                              animationDelay: '1s'
-                            }}
-                          >
-                            <PersonAdd sx={{ fontSize: 30 }} />
-                          </Avatar>
-                          <Box flex={1}>
-                            <Typography variant="h5" fontWeight="700" mb={1}>
-                              Patient Portal
-                            </Typography>
-                            <Typography variant="body2" sx={{ opacity: 0.9, mb: 2 }}>
-                              Book appointments, view medical history, and manage your healthcare
-                            </Typography>
-                            <Box display="flex" alignItems="center" gap={1}>
-                              <Typography variant="body2" fontWeight="600">
-                                Get Started
-                              </Typography>
-                              <KeyboardArrowRight />
-                            </Box>
-                          </Box>
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Slide>
-                </Grid>
-              </Grid>
             </Box>
-          </Grid>
-        </Grid>
-
-        {/* Quick Info Badges */}
-        <Container maxWidth="md" sx={{ mt: 6 }}>
-          <Fade in timeout={1500}>
-            <Grid container spacing={2} justifyContent="center">
-              {[
-                { icon: AccessTime, label: 'Real-time Updates', color: '#667eea' },
-                { icon: Security, label: 'Secure & Private', color: '#f093fb' },
-                { icon: Speed, label: 'Lightning Fast', color: '#4facfe' },
-                { icon: Verified, label: '100% Reliable', color: '#f5576c' }
-              ].map((feature, index) => (
-                <Grid key={feature.label}>
-                  <Zoom in timeout={1500 + index * 200}>
-                    <Chip
-                      icon={<feature.icon sx={{ color: 'white !important' }} />}
-                      label={feature.label}
-                      sx={{
-                        background: `linear-gradient(135deg, ${feature.color} 0%, ${feature.color}dd 100%)`,
-                        color: 'white',
-                        fontWeight: 600,
-                        py: 2,
-                        px: 1,
-                        animation: `${pulse} 3s infinite`,
-                        animationDelay: `${index * 0.5}s`,
-                        boxShadow: `0 4px 20px ${feature.color}44`,
-                        '&:hover': {
-                          transform: 'scale(1.1)',
-                          boxShadow: `0 8px 30px ${feature.color}66`
-                        },
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
-                  </Zoom>
-                </Grid>
-              ))}
-            </Grid>
-          </Fade>
+            <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, justifyContent: 'center' }}>
+              <LocalHospital sx={{ fontSize: 200, opacity: 0.8 }} />
+            </Box>
+          </Box>
         </Container>
       </Container>
 
-      {/* Floating Quick Access Buttons */}
-      {showFloatingButtons && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 2
-          }}
+      {/* Features Section */}
+      <Container maxWidth="lg" sx={{ py: 8 }}>
+        <Typography
+          variant="h3"
+          component="h2"
+          align="center"
+          gutterBottom
+          sx={{ mb: 6, fontWeight: 'bold' }}
         >
-          <Zoom in timeout={2000}>
-            <Tooltip title="Quick Doctor Login" placement="left">
-              <Fab
-                onClick={() => navigate('/doctor')}
-                sx={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
-                    transform: 'scale(1.1)'
-                  },
-                  animation: `${float} 3s ease-in-out infinite`
-                }}
-              >
-                <LocalHospital />
-              </Fab>
-            </Tooltip>
-          </Zoom>
-          <Zoom in timeout={2200}>
-            <Tooltip title="Quick Patient Access" placement="left">
-              <Fab
-                onClick={() => navigate('/patient')}
-                sx={{
-                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                  color: 'white',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #e879f9 0%, #ef4444 100%)',
-                    transform: 'scale(1.1)'
-                  },
-                  animation: `${float} 3s ease-in-out infinite`,
-                  animationDelay: '1s'
-                }}
-              >
-                <PersonAdd />
-              </Fab>
-            </Tooltip>
-          </Zoom>
-          <Zoom in timeout={2400}>
-            <Tooltip title="Hide Quick Access" placement="left">
-              <Fab
-                size="small"
-                onClick={() => setShowFloatingButtons(false)}
-                sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.2)',
-                  color: 'white',
-                  backdropFilter: 'blur(10px)',
-                  '&:hover': {
-                    bgcolor: 'rgba(255, 255, 255, 0.3)',
-                    transform: 'scale(1.1)'
-                  }
-                }}
-              >
-                <Close fontSize="small" />
-              </Fab>
-            </Tooltip>
-          </Zoom>
-        </Box>
-      )}
-
-      {/* Onboarding Walkthrough */}
-      <Backdrop
-        open={showOnboarding}
-        sx={{ zIndex: 2000, bgcolor: 'rgba(0, 0, 0, 0.8)' }}
-        onClick={handleOnboardingComplete}
-      >
-        <Paper
-          sx={{
-            p: 4,
-            maxWidth: 400,
-            textAlign: 'center',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            position: 'relative'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <IconButton
-            onClick={handleOnboardingComplete}
-            sx={{ position: 'absolute', top: 8, right: 8, color: 'white' }}
-          >
-            <Close />
-          </IconButton>
-          <Avatar sx={{ width: 60, height: 60, bgcolor: 'rgba(255, 255, 255, 0.2)', mx: 'auto', mb: 2 }}>
-            <Star sx={{ fontSize: 30 }} />
-          </Avatar>
-          <Typography variant="h5" fontWeight="700" mb={2}>
-            Welcome to HealthQueue!
-          </Typography>
-          <Typography variant="body1" sx={{ opacity: 0.9, mb: 3 }}>
-            Choose your role to get started with our virtual queue management system.
-          </Typography>
-          <Box display="flex" gap={2} justifyContent="center">
-            <Button
-              variant="contained"
-              onClick={() => {
-                navigate('/doctor');
-                handleOnboardingComplete();
-              }}
-              sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.2)',
-                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
+          Why Choose Our Platform?
+        </Typography>
+        <Box sx={{ 
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 4,
+          justifyContent: 'center'
+        }}>
+          {features.map((feature, index) => (
+            <Box 
+              key={index}
+              sx={{ 
+                flex: { xs: '1 1 100%', sm: '1 1 45%', md: '1 1 22%' },
+                minWidth: 250,
+                maxWidth: 300
               }}
             >
-              I'm a Doctor
+              <Card
+                sx={{
+                  height: '100%',
+                  textAlign: 'center',
+                  p: 3,
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'translateY(-5px)' }
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ mb: 2 }}>{feature.icon}</Box>
+                  <Typography variant="h6" component="h3" gutterBottom>
+                    {feature.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {feature.description}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Box>
+          ))}
+        </Box>
+      </Container>
+
+      {/* Call to Action */}
+      <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 6 }}>
+        <Container maxWidth="md">
+          <Typography variant="h4" align="center" gutterBottom>
+            Ready to Get Started?
+          </Typography>
+          <Typography variant="h6" align="center" paragraph sx={{ opacity: 0.9 }}>
+            Join thousands of patients and healthcare providers using our platform
+          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: 2, 
+            mt: 3,
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: 'center'
+          }}>
+            <Button
+              variant="contained"
+              size="large"
+              onClick={() => navigate('/patient')}
+              sx={{ 
+                bgcolor: 'white', 
+                color: 'primary.main', 
+                '&:hover': { bgcolor: 'grey.100' },
+                minWidth: 200
+              }}
+            >
+              Get Started as Patient
             </Button>
             <Button
-              variant="contained"
-              onClick={() => {
-                navigate('/patient');
-                handleOnboardingComplete();
-              }}
-              sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.2)',
-                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' }
+              variant="outlined"
+              size="large"
+              onClick={() => navigate('/doctor')}
+              sx={{ 
+                borderColor: 'white', 
+                color: 'white', 
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                minWidth: 200
               }}
             >
-              I'm a Patient
+              Join as Doctor
             </Button>
           </Box>
-        </Paper>
-      </Backdrop>
+        </Container>
+      </Box>
+
+      {/* Floating Review Button */}
+      <Fab
+        color="primary"
+        aria-label="leave review"
+        onClick={() => setReviewOpen(true)}
+        sx={{
+          position: 'fixed',
+          bottom: 32,
+          right: 32,
+          zIndex: 1000
+        }}
+      >
+        <Reviews />
+      </Fab>
+
+      {/* Review Modal */}
+      <Dialog
+        open={reviewOpen}
+        onClose={() => !submittingReview && setReviewOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" component="div">
+            Leave a Review
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {reviewSuccess ? (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Thank you for your review! It has been submitted successfully.
+            </Alert>
+          ) : (
+            <Box sx={{ pt: 1 }}>
+              <TextField
+                autoFocus
+                margin="dense"
+                label="Your Name"
+                fullWidth
+                variant="outlined"
+                value={reviewerName}
+                onChange={(e) => setReviewerName(e.target.value)}
+                sx={{ mb: 3 }}
+              />
+              
+              <Box sx={{ mb: 3 }}>
+                <Typography component="legend" sx={{ mb: 1 }}>
+                  Rating
+                </Typography>
+                <Rating
+                  name="review-rating"
+                  value={rating}
+                  onChange={(event, newValue) => {
+                    setRating(newValue);
+                  }}
+                  size="large"
+                />
+              </Box>
+              
+              <TextField
+                margin="dense"
+                label="Your Review"
+                fullWidth
+                multiline
+                rows={4}
+                variant="outlined"
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="Share your experience with our healthcare platform..."
+                helperText={`${reviewText.length} characters (minimum 5 required)`}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          {!reviewSuccess && (
+            <>
+              <Button 
+                onClick={() => setReviewOpen(false)}
+                disabled={submittingReview}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReviewSubmit}
+                variant="contained"
+                disabled={!rating || !reviewText.trim() || !reviewerName.trim() || submittingReview}
+                startIcon={submittingReview ? <CircularProgress size={20} /> : <Send />}
+              >
+                {submittingReview ? 'Submitting...' : 'Submit Review'}
+              </Button>
+            </>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

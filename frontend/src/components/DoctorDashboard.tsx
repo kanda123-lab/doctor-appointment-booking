@@ -33,7 +33,8 @@ import {
   WhatsApp,
   LocalHospital,
   EventNote,
-  Today
+  Today,
+  CalendarToday
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -52,6 +53,7 @@ const DoctorDashboard: React.FC = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [confirmDialog, setConfirmDialog] = useState({ open: false, appointmentId: '', status: '', message: '' });
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Helper function to format time to 12-hour format
   const formatTime12Hour = (time: string): string => {
@@ -389,7 +391,7 @@ const DoctorDashboard: React.FC = () => {
                 { 
                   label: 'Pick Date', 
                   date: null,
-                  icon: null
+                  icon: CalendarToday
                 }
               ].map((dateOption, index) => {
                 const isSelected = selectedDate === dateOption.date;
@@ -398,46 +400,14 @@ const DoctorDashboard: React.FC = () => {
                 return (
                   <Chip
                     key={dateOption.label}
-                    label={
-                      isPickDate ? (
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                          <DatePicker
-                            value={selectedDate ? dayjs(selectedDate) : dayjs()}
-                            onChange={(newValue) => {
-                              if (newValue) {
-                                handleDateChange(newValue.format('YYYY-MM-DD'));
-                              }
-                            }}
-                            slotProps={{
-                              textField: {
-                                variant: 'standard',
-                                InputProps: {
-                                  disableUnderline: true,
-                                  sx: { 
-                                    fontSize: '0.875rem',
-                                    fontWeight: 600,
-                                    '& input': {
-                                      textAlign: 'center',
-                                      cursor: 'pointer',
-                                      padding: 0
-                                    }
-                                  }
-                                },
-                                sx: { 
-                                  '& .MuiInput-root': {
-                                    '&:before, &:after': { display: 'none' }
-                                  }
-                                }
-                              },
-                              openPickerButton: {
-                                sx: { display: 'none' }
-                              }
-                            }}
-                          />
-                        </LocalizationProvider>
-                      ) : dateOption.label
-                    }
-                    onClick={() => !isPickDate && handleDateChange(dateOption.date!)}
+                    label={dateOption.label}
+                    onClick={() => {
+                      if (isPickDate) {
+                        setDatePickerOpen(true);
+                      } else {
+                        handleDateChange(dateOption.date!);
+                      }
+                    }}
                     variant={isSelected ? 'filled' : 'outlined'}
                     icon={dateOption.icon ? <dateOption.icon sx={{ fontSize: 18 }} /> : undefined}
                     sx={{
@@ -468,6 +438,44 @@ const DoctorDashboard: React.FC = () => {
               })}
             </Box>
           </Box>
+
+          {/* Mobile-First Date Picker */}
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DatePicker
+              open={datePickerOpen}
+              onClose={() => setDatePickerOpen(false)}
+              value={selectedDate ? dayjs(selectedDate) : dayjs()}
+              onChange={(newValue) => {
+                if (newValue) {
+                  handleDateChange(newValue.format('YYYY-MM-DD'));
+                  setDatePickerOpen(false);
+                }
+              }}
+              minDate={dayjs()}
+              slotProps={{
+                textField: {
+                  sx: { display: 'none' }
+                },
+                mobilePaper: {
+                  sx: {
+                    '& .MuiPickersCalendarHeader-root': {
+                      paddingLeft: 2,
+                      paddingRight: 2
+                    },
+                    '& .MuiDayCalendar-weekDayLabel': {
+                      fontSize: '0.875rem',
+                      fontWeight: 600
+                    },
+                    '& .MuiPickersDay-root': {
+                      fontSize: '0.875rem',
+                      width: 40,
+                      height: 40
+                    }
+                  }
+                }
+              }}
+            />
+          </LocalizationProvider>
 
           {/* Status Segmented Control */}
           <Box>

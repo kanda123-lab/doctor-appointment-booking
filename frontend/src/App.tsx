@@ -5,6 +5,7 @@ import { SimpleAuthProvider } from './context/SimpleAuthContext';
 import Home from './components/Home';
 import DoctorDashboard from './components/DoctorDashboard';
 import PatientDashboard from './components/PatientDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 // Mock user data - no authentication needed
 const mockDoctor: Doctor = {
@@ -77,6 +78,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Home />} />
           <Route path="/doctor" element={<DoctorWrapper />} />
           <Route path="/patient" element={<PatientWrapper />} />
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

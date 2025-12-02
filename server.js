@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const socketIo = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -8,9 +10,25 @@ const authRoutes = require('./src/routes/auth');
 const doctorRoutes = require('./src/routes/doctors');
 const patientRoutes = require('./src/routes/patients');
 const appointmentRoutes = require('./src/routes/appointments');
+const reviewRoutes = require('./src/routes/reviews');
 const logger = require('./src/utils/logger');
+const { socketHandler } = require('./src/services/socketHandler');
+const scheduledNotifications = require('./src/services/scheduledNotifications');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || "http://localhost:3001",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Initialize socket handling
+socketHandler(io);
+
+// Make io available to other modules
+app.set('io', io);
 
 app.use(helmet());
 app.use(cors());
@@ -31,6 +49,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
@@ -54,9 +73,14 @@ app.use((error, req, res) => {
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log(`WebSocket server ready for real-time communications`);
+    
+    // Initialize scheduled notifications
+    scheduledNotifications.init();
+    logger.info('Scheduled notification services initialized');
   });
 }
 
-module.exports = app;
+module.exports = { app, server, io };
