@@ -4,7 +4,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
+    "start:prod": "./start-production.sh",
     "dev": "nodemon server.js",
+    "build": "cd frontend && npm run build",
+    "deploy": "npm run build && npm run start:prod",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

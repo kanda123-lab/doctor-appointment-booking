@@ -4,6 +4,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const path = require('path');
 require('dotenv').config();
 
 const authRoutes = require('./src/routes/auth');
@@ -51,12 +52,23 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reviews', reviewRoutes);
 
-app.use((req, res) => {
-  res.status(404).json({
-    status: 'error',
-    message: `Route ${req.originalUrl} not found`,
+// Serve static files from React build in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve static files
+  app.use(express.static(path.join(__dirname, 'frontend/build')));
+  
+  // Handle React routing, return all requests to React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
   });
-});
+} else {
+  app.use((req, res) => {
+    res.status(404).json({
+      status: 'error',
+      message: `Route ${req.originalUrl} not found`,
+    });
+  });
+}
 
 app.use((error, req, res) => {
   logger.error('Unhandled error:', error);
